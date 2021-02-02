@@ -1,0 +1,10 @@
+package dk.teamonline.enums;
+
+public enum UserTrackError {
+    INCORRECT_TYPE,
+    INCORRECT_EXPRESSION,
+    MISSED_USER_TRACKING,
+    MISSED_PARAMETERS,
+    REDUNDANT_PARAMETERS,
+    DUPLICATED_PARAMETER
+}

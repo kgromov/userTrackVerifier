@@ -1,13 +1,12 @@
 package dk.teamonline.domain;
 
 import dk.eg.sensum.userTrack.domain.UserTracking;
-import dk.teamonline.resolvers.MethodParamNamesResolver;
+import dk.teamonline.resolvers.MethodParametersResolver;
+import dk.teamonline.table.TableRow;
 import dk.teamonline.utils.RequestMappingUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.persistence.Entity;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.*;
@@ -15,43 +14,46 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static dk.eg.sensum.userTrack.domain.UserTrackAction.IGNORE;
+import static dk.teamonline.resolvers.MethodParametersResolver.concatenateParams;
+import static java.util.stream.Collectors.joining;
 
-public class EndpointMethod {
+public class EndpointMethod implements TableRow {
     public static final Predicate<Parameter> IS_PARAMETER_ANNOTATED = p ->
         p.isAnnotationPresent(PathVariable.class)
             || p.isAnnotationPresent(RequestParam.class)
             || p.isAnnotationPresent(ModelAttribute.class)
             || p.isAnnotationPresent(RequestBody.class);
 
+    private final Class<?> declaredClass;
     private final String methodName;
-    private final String returnType;
+    private final String methodSignature;
     private final String relativeUrl;
     private final Set<RequestMethod> httpMethods;
     private final UserTrackMethod userTrackMethod;
-    private final Map<String, Parameter> parametersToRealName = new LinkedHashMap<>();
+    private final Map<String, Parameter> parametersToRealName;
 
 
-    public EndpointMethod(Method method, String parentUrl, MethodParamNamesResolver namesResolver) {
+    public EndpointMethod(WebController controller, Method method, MethodParametersResolver parametersResolver) {
+        this.declaredClass = method.getDeclaringClass();
         this.methodName = method.getName();
-        this.returnType = method.getReturnType().getSimpleName();
+        this.methodSignature = parametersResolver.getPrettyPrintSignature(method);
+        this.parametersToRealName = parametersResolver.getParametersToRealName(method);
         String methodUrl = RequestMappingUtils.getMethodRelativeUrl(method);
-        this.relativeUrl = (parentUrl + '/' + methodUrl).replaceAll("/{2,}", "/")
+        this.relativeUrl = (controller.getRelativeUrl() + '/' + methodUrl).replaceAll("/{2,}", "/")
             // correlation to Postman
             .replace("{", "{{")
             .replace("}", "}}");
         this.httpMethods = RequestMappingUtils.getHttpMethods(method);
         UserTracking userTracking = method.getAnnotation(UserTracking.class);
         this.userTrackMethod = userTracking != null ? new UserTrackMethod(userTracking) : null;
-        List<String> methodParameterNames = namesResolver.getParameterNames(method);
-        Parameter[] methodParameters = method.getParameters();
-        for (int i = 0; i < methodParameters.length; i++) {
-            parametersToRealName.put(methodParameterNames.get(i), methodParameters[i]);
-        }
-
     }
 
     public String getMethodName() {
         return methodName;
+    }
+
+    public String getMethodSignature() {
+        return methodSignature;
     }
 
     public String getRelativeUrl() {
@@ -70,31 +72,12 @@ public class EndpointMethod {
         return parametersToRealName;
     }
 
-    public boolean isIgnoring() {
-        return userTrackMethod.getAction() == IGNORE;
+    public Class<?> getDeclaredClass() {
+        return declaredClass;
     }
 
-
-    public String getPrettyPrintSignature() {
-        StringBuilder signature = new StringBuilder(returnType);
-        signature.append(' ');
-        signature.append(methodName);
-        signature.append('(');
-        int leftPadding = returnType.length() + methodName.length() + 8;
-        String params = parametersToRealName.entrySet().stream()
-            .map(e -> {
-                Parameter parameter = e.getValue();
-                Annotation[] annotations = parameter.getAnnotations();
-                String annotation = annotations == null || annotations.length == 0
-                    ? "" : Arrays.stream(annotations)
-                    .map(a -> a.annotationType().getSimpleName())
-                    .collect(Collectors.joining(" @", "@", " "));
-                return annotation + parameter.getType().getSimpleName() + ' ' + e.getKey();
-            })
-            .collect(Collectors.joining(",\n" + StringUtils.leftPad(" ", leftPadding)));
-        signature.append(params);
-        signature.append(')');
-        return signature.toString();
+    public boolean isIgnoring() {
+        return userTrackMethod.getAction() == IGNORE;
     }
 
     // helper methods for module summary data
@@ -112,17 +95,31 @@ public class EndpointMethod {
             .forEach(entry -> {
                 String parameterName = entry.getKey();
                 Parameter parameter = entry.getValue();
-                RequestMappingUtils.getRequestParameterAnnotationClass(parameter).ifPresent(annotationType -> {
+                RequestMappingUtils.getRequestParameterAnnotationClass(parameter).ifPresent(annotationType ->
                     result.computeIfAbsent(annotationType, value -> new HashSet<>())
-                        .add(parameter.getType().getSimpleName() + ' ' + parameterName);
-                });
+                        .add(parameter.getType().getSimpleName() + ' ' + parameterName));
             });
         return result;
     }
 
+
+    @Override
+    public String[] getCells() {
+        String params = concatenateParams(parametersToRealName, "\n");
+        return new String[]{
+            this.methodName,
+            this.relativeUrl,
+            this.userTrackMethod.getAction().getTextValue(),
+            this.httpMethods.stream().map(Enum::name).sorted().collect(joining(",")),
+            this.userTrackMethod.getUserTrackParameters().stream().map(UserTrackValue::toString).collect(joining("\n")),
+            params,
+            ""
+        };
+    }
+
     @Override
     public String toString() {
-        return String.join("\n", getPrettyPrintSignature(),
+        return String.join("\n", methodSignature,
             "method = " + httpMethods.toString(),
             "URL = " + relativeUrl);
     }

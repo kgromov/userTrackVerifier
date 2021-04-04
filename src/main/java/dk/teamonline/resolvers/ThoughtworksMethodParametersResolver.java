@@ -11,10 +11,10 @@ import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class ThoughtworksMethodParamNamesResolver implements MethodParamNamesResolver {
+public class ThoughtworksMethodParametersResolver implements MethodParametersResolver {
     private final JavaProjectBuilder builder;
 
-    public ThoughtworksMethodParamNamesResolver(JavaProjectBuilder builder) {
+    public ThoughtworksMethodParametersResolver(JavaProjectBuilder builder) {
         this.builder = builder;
     }
 
@@ -36,7 +36,7 @@ public class ThoughtworksMethodParamNamesResolver implements MethodParamNamesRes
     private boolean isTheSameSignature(Method method, JavaMethod javaMethod) {
         List<String> originalParamTypes = Arrays.stream(method.getParameters())
             .map(Parameter::getType)
-            .map(Class::getName)
+            .map(Class::getCanonicalName)
             .collect(Collectors.toList());
 
         List<String> parsedParamTypes = javaMethod.getParameters().stream()

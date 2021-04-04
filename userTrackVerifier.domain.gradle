@@ -1,12 +1,87 @@
 dependencies {
+    projectDependency 'acadre.ui'
+    projectDependency 'activity.ui'
+    projectDependency 'activity.extws'
+
+    projectDependency 'admission.ui'
+    projectDependency 'admission.ws'
+
+    projectDependency 'assignment.ui'
+    projectDependency 'assignment.extws'
+
+    projectDependency 'attachment.ui'
+    projectDependency 'authorityTreatment.ui'
+    projectDependency 'authorityTreatment.extws'
+
+    projectDependency 'cases.ui'
+    projectDependency 'citizen.ui'
+
+    projectDependency 'citizenprocess.ui'
+    projectDependency 'citizenprocess.ws'
+    projectDependency 'citizenprocess.extws'
+    projectDependency 'citizenprocessStatistics.ui'
+
+    projectDependency 'course.ui'
+    projectDependency 'courses.ui'
+    projectDependency 'customfield.ui'
+
+    projectDependency 'dashboard.ui'
+    projectDependency 'dispositionbudget.ui'
+    projectDependency 'dubu.ui'
+
+    projectDependency 'ean13.ui'
+    projectDependency 'evaluation.ui'
+
+    projectDependency 'digitalPost.ui'
+    projectDependency 'digitalPost.extws'
+
+    projectDependency 'document.ui'
+    projectDependency 'forcescheme.ui'
+
+    projectDependency 'goal.ui'
+    projectDependency 'goal.ws'
+    projectDependency 'goal.extws'
     projectDependency 'goalIndicator.ui'
     projectDependency 'goalIndicator.ws'
-    projectDependency 'residentAway.ui'
-    projectDependency 'residentAway.extws'
-    projectDependency 'residentDischarge.ui'
+
     projectDependency 'instantMessage.ui'
     projectDependency 'instantMessage.ws'
     projectDependency 'instantMessage.extws'
+    projectDependency 'instantMessageDistribution.ui'
+    projectDependency 'instantMessageDistribution.ws'
+
+    projectDependency 'invoice.ui'
+
+    projectDependency 'journal.ui'
+    projectDependency 'journal.extws'
+    projectDependency 'journalIndicatorStatistic.ui'
+    projectDependency 'journalIndicatorStatistic.extws'
+
+    projectDependency 'mailjournalizing.ui'
+    projectDependency 'mailjournalizing.ws'
+    projectDependency 'mailjournalizing.extws'
+
+    projectDependency 'medicine.ui'
+    projectDependency 'medicine.extws'
+
+    projectDependency 'payout.ui'
+    projectDependency 'person.ui'
+    projectDependency 'person.extws'
+
+    projectDependency 'plan.ui'
+    projectDependency 'plan.ws'
+    projectDependency 'plan.extws'
+
+    projectDependency 'resident.ui'
+    projectDependency 'resident.extws'
+    projectDependency 'residentAway.ui'
+    projectDependency 'residentAway.extws'
+    projectDependency 'residentDischarge.ui'
+    projectDependency 'residentSalary.ui'
+
+    projectDependency 'subgoal.ui'
+    projectDependency 'subgoal.extws'
+    projectDependency 'supplierCase.ui'
 
     compile group: 'org.reflections', name: 'reflections', version: '0.9.12'
     compile group: 'com.thoughtworks.qdox', name: 'qdox', version: '2.0.0'

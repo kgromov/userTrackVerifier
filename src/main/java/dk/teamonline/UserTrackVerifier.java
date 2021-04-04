@@ -6,6 +6,7 @@ import dk.teamonline.domain.EndpointMethod;
 import dk.teamonline.domain.ErrorCollector;
 import dk.teamonline.domain.UserTrackMethod;
 import dk.teamonline.domain.UserTrackValue;
+import dk.teamonline.util.hibernateBase.Identifiable;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -16,35 +17,35 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import javax.persistence.Entity;
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static dk.eg.sensum.userTrack.domain.UserTrackAction.*;
-import static dk.eg.sensum.userTrack.domain.UserTrackAction.AUTOSAVE;
 import static dk.teamonline.domain.EndpointMethod.IS_PARAMETER_ANNOTATED;
 import static dk.teamonline.enums.UserTrackError.*;
-import static dk.teamonline.enums.UserTrackError.INCORRECT_EXPRESSION;
-import static dk.teamonline.enums.UserTrackWarning.INCORRECT_ACTION;
-import static dk.teamonline.enums.UserTrackWarning.REDUNDANT_PARAMETER;
+import static dk.teamonline.enums.UserTrackWarning.*;
 
 /**
  * Class that perform all required validation over endpoint under @UserTracking
- *
+ * <p>
  * By real errors meant:
  * 1) invalid Spel expression in @UserTrackParameter expression;
  * 2) @UserTrackParameter type is not @Entity annotated
  * 3) duplicated parameter(s)
  * 4) missed @userTracking for method with @RequestMapping
- *
- * By potential errors:
+ * <p>
+ * By potential errors (warning):
  * 1) HTTP method and user track action mismatch;
- * 3) Redundancy - More than 2 @UserTrackParameters
+ * 2) Redundancy - More than 2 @UserTrackParameters;
+ * 3) Missed UserTrackParameter for input method params annotated with either:
+ * {@link org.springframework.web.bind.annotation.RequestParam}
+ * or {@link org.springframework.web.bind.annotation.PathVariable}
+ * or {@link org.springframework.web.bind.annotation.RequestBody}
+ * or {@link org.springframework.web.bind.annotation.ModelAttribute}
  */
 public class UserTrackVerifier {
-    private static final Logger LOGGER = LoggerFactory.getLogger(EndpointMethod.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserTrackVerifier.class);
 
     private static final Map<UserTrackAction, RequestMethod> ACTION_TO_METHOD = Map.of(
         SHOW, RequestMethod.GET,
@@ -56,6 +57,12 @@ public class UserTrackVerifier {
         COPY, RequestMethod.POST,
         AUTOSAVE, RequestMethod.POST
     );
+
+    private static final Predicate<Parameter> IS_PLURAL = p ->
+    {
+        Class<?> type = p.getType();
+        return type.isArray() || Collection.class.isAssignableFrom(type) || Map.class.isAssignableFrom(type);
+    };
 
     private final ErrorCollector errorCollector;
     private final EndpointMethod endpointMethod;
@@ -113,7 +120,7 @@ public class UserTrackVerifier {
     private boolean hasNotOnlyCitizenIdAware(List<UserTrackValue> userTrackParameters) {
         long amountOfCitizenAwareEntities = userTrackParameters.stream()
             .map(UserTrackValue::getType)
-            .filter(type -> type.isAssignableFrom(CitizenIdAware.class))
+            .filter(CitizenIdAware.class::isAssignableFrom)
             .count();
         return amountOfCitizenAwareEntities > 0 && userTrackParameters.size() - amountOfCitizenAwareEntities > 0;
     }
@@ -122,11 +129,12 @@ public class UserTrackVerifier {
         if (!endpointMethod.getUserTrackMethod().hasUserTrackParameters()) {
             List<String> paramsForTracking = endpointMethod.getParametersToRealName().entrySet().stream()
                 .filter(e -> IS_PARAMETER_ANNOTATED.test(e.getValue()))
+                .filter(e -> !IS_PLURAL.test(e.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
             if (!paramsForTracking.isEmpty()) {
-                errorCollector.appendError(MISSED_PARAMETERS,
+                errorCollector.appendWarning(MISSED_PARAMETERS,
                     String.format("At Least 1 @UserTrackParameter is required cause method has annotated parameters:%n%s", paramsForTracking));
             }
         }
@@ -150,12 +158,13 @@ public class UserTrackVerifier {
      * The following
      * 1) Model or ModelAndView => @ModelAttribute
      * 2) Command, [@RequestBody] + dto, searcher => by Spell (. is mandatory)
-     * 3) String or primitives and boxing types => ClassUtils.isPrimitiveOrWrapper()
+     * 3) String or primitives and boxing types => by param name
      */
     private void validateUserTrackParameter(UserTrackValue userTrackParameter, Parameter parameter, String parameterName) {
-        if (!userTrackParameter.getType().isAnnotationPresent(Entity.class)) {
+        if (!userTrackParameter.getType().isAnnotationPresent(Entity.class)
+            && !Identifiable.class.isAssignableFrom(userTrackParameter.getType())) {
             errorCollector.appendError(INCORRECT_TYPE,
-                String.format("Incorrect type for %s - should be @Entity", userTrackParameter));
+                String.format("Incorrect type for %s - should be @Entity or extends Identifiable", userTrackParameter));
         }
 
         // validate expression
@@ -165,8 +174,8 @@ public class UserTrackVerifier {
         if (parameterType.equals(String.class) || ClassUtils.isPrimitiveOrWrapper(parameterType)) {
             if (!parameterName.equals(expression)) {
                 errorCollector.appendError(INCORRECT_EXPRESSION,
-                    String.format("Incorrect expression for %s does not match method parameter name: %s",
-                        userTrackParameter, parameter));
+                    String.format("Incorrect expression: %s does not match method parameter name: %s",
+                        userTrackParameter.getExpression(), parameterType.getSimpleName()));
             }
         } else {
             String[] fieldNames = expression.split("\\.");
@@ -174,8 +183,8 @@ public class UserTrackVerifier {
                 Field field = ReflectionUtils.findField(fieldClazz, fieldNames[i]);
                 if (field == null) {
                     errorCollector.appendError(INCORRECT_EXPRESSION,
-                        String.format("Incorrect expression for %s does not match method parameter name: %s",
-                            userTrackParameter, parameter));
+                        String.format("Incorrect expression %s: method parameter: %s has no field: %s",
+                            userTrackParameter.getExpression(), parameterType.getSimpleName(), fieldNames[i]));
                     break;
                 }
                 fieldClazz = field.getType();
@@ -191,7 +200,15 @@ public class UserTrackVerifier {
         String decoration = StringUtils.repeat('=', 20);
         LOGGER.info("{} Method Summary {}", decoration, decoration);
         LOGGER.error("---ERRORS---\n{}", errorCollector.getErrorsAsString());
-        LOGGER.error("\n---WARNINGS---\n{}",  errorCollector.getWarningsAsString());
+        LOGGER.error("\n---WARNINGS---\n{}", errorCollector.getWarningsAsString());
         LOGGER.info("{}", StringUtils.repeat(decoration, 3));
+    }
+
+    public ErrorCollector getErrorCollector() {
+        return errorCollector;
+    }
+
+    public EndpointMethod getEndpointMethod() {
+        return endpointMethod;
     }
 }

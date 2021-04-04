@@ -10,10 +10,10 @@
   </appender>
 
   <appender name="test-appender" class="org.apache.log4j.FileAppender">
-    <param name="File" value="${userTrack.log.path}/userTrack-analyzer_${module.name}.log" />
+    <param name="File" value="userTrackVerifier/domain/logs/userTrack-analyzer.log" />
     <param name="Append" value="false" />
     <layout class="org.apache.log4j.PatternLayout">
-      <param name="ConversionPattern" value="%m\n" />
+      <param name="ConversionPattern" value="\n%m" />
     </layout>
   </appender>
 

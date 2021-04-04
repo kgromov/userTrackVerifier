@@ -17,7 +17,7 @@ public class ErrorCollector {
     }
 
     public void appendWarning(UserTrackWarning warning, String message) {
-        warnings.computeIfAbsent(warning, messages -> new StringBuilder().append('\n').append(message));
+        warnings.computeIfAbsent(warning, messages -> new StringBuilder()).append('\n').append(message);
     }
 
     public Map<UserTrackError, StringBuilder> getErrors() {
@@ -33,7 +33,7 @@ public class ErrorCollector {
         return errors.entrySet().stream()
             .filter(e -> targetErrorTypes.isEmpty() || targetErrorTypes.contains(e.getKey()))
             .map(e -> e.getKey() + ":" + e.getValue())
-            .collect(Collectors.joining());
+            .collect(Collectors.joining("\n"));
     }
 
     public String getWarningsAsString(UserTrackWarning... warningTypes) {
@@ -41,6 +41,6 @@ public class ErrorCollector {
         return warnings.entrySet().stream()
             .filter(e -> targetWarningTypes.isEmpty() || targetWarningTypes.contains(e.getKey()))
             .map(e -> e.getKey() + ":" + e.getValue())
-            .collect(Collectors.joining());
+            .collect(Collectors.joining("\n"));
     }
 }

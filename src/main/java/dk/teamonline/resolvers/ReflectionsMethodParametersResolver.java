@@ -5,10 +5,10 @@ import org.reflections.Reflections;
 import java.lang.reflect.Method;
 import java.util.List;
 
-public class ReflectionsMethodParamNamesResolver implements MethodParamNamesResolver {
+public class ReflectionsMethodParametersResolver implements MethodParametersResolver {
     private final Reflections scanner;
 
-    public ReflectionsMethodParamNamesResolver(Reflections scanner) {
+    public ReflectionsMethodParametersResolver(Reflections scanner) {
         this.scanner = scanner;
     }
 
